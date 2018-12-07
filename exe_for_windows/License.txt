@@ -1,0 +1,11 @@
+* ------------------------------------------------------
+* (C)2018 joembedded(at)gmail.com - www.joembedded.de
+* ------------------------------------------------------
+*
+
+This public domain software.
+I give no warranty for anything! Using it is at your own risk!
+
+***
+
+
