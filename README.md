@@ -1,11 +1,12 @@
 # SPS30 Particle Sensor
 
 SPS30 is a new particle sensor from Sensirion AG.
+
 This is a simple test driver for UART mode and Windows.
 
 ![SPS30](https://github.com/joembedded/SPS30_particle_sensor/blob/master/images/sps30_particle_sensor.jpg)
 
-[Download 'sps30_win.exe'](https://github.com/joembedded/SPS30_particle_sensor/blob/master/exe_for_windows/sps30_win.exe)
+EXE for Windows: [Download 'sps30_win.exe'](https://github.com/joembedded/SPS30_particle_sensor/blob/master/exe_for_windows/sps30_win.exe)
 
 ![Test Software](https://github.com/joembedded/SPS30_particle_sensor/blob/master/images/sps30_win.jpg)
 
