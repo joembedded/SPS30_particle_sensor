@@ -1,6 +1,6 @@
 # SPS30 Particle Sensor
 
-SPS30 is a new particle sensor from Sensirion AG.
+The SPS30 is a new particle sensor from Sensirion AG.
 
 This is a simple test driver for UART mode and Windows.
 
@@ -16,7 +16,9 @@ Often the components (housing and pre crimped cables) are easier to get than com
 - Cables ASZHSZH28K152 
 
 Best is to connect the sensor to an USB UART.
+
 Power consumtion is about 5 mA in stop mode and 50mA active.
+
 Sensor needs 5V, the I/Os are 3.3/5V tolerant.
 
 ***
