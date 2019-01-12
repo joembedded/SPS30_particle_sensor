@@ -1,0 +1,3 @@
+The 'sps30_win.exe' might request several runtime dlls and bpls. 
+If not already on your PC, just extract the zip in the same directory
+as the exe. Then it should work. 
