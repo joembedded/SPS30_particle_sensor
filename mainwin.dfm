@@ -1,7 +1,7 @@
 object Form1: TForm1
   Left = 0
   Top = 0
-  Caption = 'SPS30-Test V0.1'
+  Caption = 'SPS30-Test V0.2'
   ClientHeight = 362
   ClientWidth = 484
   Color = clBtnFace
@@ -159,7 +159,7 @@ object Form1: TForm1
     BevelInner = bvLowered
     BevelKind = bkTile
     Lines.Strings = (
-      'SPS30 Particle Sensor V0.1 - 7.12.2018 (C) JoEmbedded.de'
+      'SPS30 Particle Sensor V0.2 - 11.02.2018 (C) JoEmbedded.de'
       '===================================='
       '- SPS30 needs 3.3 or 5V UART (115kBd), leave Pin 4 (SEL) open'
       '- Written with Embarcadero C++ Builder 10.2'
@@ -167,6 +167,33 @@ object Form1: TForm1
     ReadOnly = True
     ScrollBars = ssVertical
     TabOrder = 11
+  end
+  object ButtonReadAutoCleaning: TButton
+    Left = 384
+    Top = 191
+    Width = 92
+    Height = 25
+    Caption = 'Read Auto Clean'
+    TabOrder = 12
+    OnClick = ButtonReadAutoCleaningClick
+  end
+  object ButtonSetAutoCleaning: TButton
+    Left = 384
+    Top = 222
+    Width = 92
+    Height = 25
+    Caption = 'Set Auto Clean'
+    TabOrder = 13
+    OnClick = ButtonSetAutoCleaningClick
+  end
+  object EditSecs: TEdit
+    Left = 385
+    Top = 245
+    Width = 91
+    Height = 21
+    MaxLength = 16
+    TabOrder = 14
+    Text = '(in sec)'
   end
   object DrawTimer: TTimer
     Enabled = False

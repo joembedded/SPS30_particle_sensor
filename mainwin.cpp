@@ -14,18 +14,66 @@
 #pragma resource "*.dfm"
 TForm1 *Form1;
 
+#define SDEBUG  // If defined: log complete i/o to file slog.dat
+
+#ifdef SDEBUG
+
+static FILE *_slf;
+static int _ser_dir;
+static CRITICAL_SECTION _ser_critical;
+#define _S_WRITE    1
+#define _S_READ    -1
+
+void _ser_log(uint8_t* pu, int len,int dir){
+	if(!_slf){
+		char str[128];
+		sprintf(str,"slog_%u.dat",time(NULL));
+		_slf=fopen(str,"wb");
+		if(!_slf) return;
+		InitializeCriticalSectionAndSpinCount(&_ser_critical,1);
+	}
+	EnterCriticalSection(&_ser_critical);
+	if(dir==_S_WRITE){
+		if(_ser_dir!=_S_WRITE){
+			_ser_dir=_S_WRITE;
+			fprintf(_slf,"WRITE:\n");
+		}
+	}else{
+		if(_ser_dir!=_S_READ){
+			_ser_dir=_S_READ;
+			fprintf(_slf,"READ:\n");
+		}
+	}
+
+	// fwrite(pu,1,len,_slf); // Binary
+	// or HEX:
+	fprintf(_slf,"[%d]", len);
+	while(len--){
+		fprintf(_slf," %02X",*pu++);
+	}
+	fprintf(_slf,"\n");
+
+	LeaveCriticalSection(&_ser_critical);
+}
+
+#endif
+
+
+
+
 //---------------Globals --------------------------------------
 typedef union {
-        int ival;
-        unsigned int uval;
-        float fval;
-        unsigned char bytes[4]; // Wenn bytes[0]==FD (LE): Fehler
+		int ival;
+		unsigned int uval;
+		float fval;
+		unsigned char bytes[4]; // Wenn bytes[0]==FD (LE): Fehler
 } MDATA;   // Datenfeld, variabel
 
 SERIAL_PORT_INFO spi;
 bool conflag=false;
 uint8_t iframe[256];    // Kompletter frame ohne Rand
 volatile int ifidx=-1;  // Inframe-Index
+int iflen=-1;
 uint8_t iesc;       // Flag Escape
 
 //------------- C part -------------------
@@ -51,10 +99,12 @@ void ext_xl_SerialReaderCallback(unsigned char *pc, unsigned int anz){
 				xcs=0;
 				for(j=0;j<ifidx-1;j++) xcs+=iframe[j];
 				if((xcs^0xFF) == iframe[ifidx-1]){
+					iflen=ifidx;    // Save len
 					ifidx=1000;
 					continue;
 				}
 			}
+			iflen=-1;
 			ifidx=-1;
 			continue;
 		}
@@ -71,6 +121,7 @@ void ext_xl_SerialReaderCallback(unsigned char *pc, unsigned int anz){
 			case 0x33: c=0x13; break;
 			default:
 				ifidx=-1;
+				iflen=-1;
 				continue;
 			}
 		}
@@ -96,7 +147,7 @@ int send_frame(uint8_t cmd, uint8_t datalen){
 	}
 	sframe[datalen+3]=xcs^0xFF;
 
-	*pu++=0x7E;
+	*pu++=0x7E;   // Startet mit 7E
 	for(i=0;i<datalen+4;i++){
 		c=sframe[i];
 		switch(c){
@@ -107,13 +158,15 @@ int send_frame(uint8_t cmd, uint8_t datalen){
 		default: *pu++=c;
 		}
 	}
-	*pu++=0x7E;
+	*pu++=0x7E; // Ende mit 7E
 
 	datalen=pu-cframe;
 
 	ifidx=-1;
 	SerialWriteCommBlock(&spi,cframe, datalen);
-
+#ifdef SDEBUG
+	_ser_log(cframe,datalen,_S_WRITE);
+#endif
 	cnt=50; // 500 msec wait
 	for(;;){
 		if(ifidx==1000) break;  // 1000: OK
@@ -123,6 +176,9 @@ int send_frame(uint8_t cmd, uint8_t datalen){
 		}
 		Sleep(10);  // mse
 	}
+#ifdef SDEBUG
+	_ser_log(iframe,iflen,_S_READ);
+#endif
 
 	status=iframe[2];
 	switch(status){
@@ -180,6 +236,10 @@ void __fastcall TForm1::Enabler(void){
 	SendCleanBut->Enabled=conflag;
 	ReadValuesBut->Enabled=conflag;
 	ResetBut->Enabled=conflag;
+
+	ButtonReadAutoCleaning->Enabled=conflag;
+	ButtonSetAutoCleaning->Enabled=conflag;
+	EditSecs->Enabled=conflag;
 
 }
 
@@ -333,7 +393,7 @@ void __fastcall TForm1::ResetButClick(TObject *Sender)
 
 void __fastcall TForm1::ReadValuesButClick(TObject *Sender)
 {
-    int res;
+	int res;
 	char line[256];
 	float fval[10];
 	Console->Lines->Add("-> Read Values");
@@ -354,6 +414,50 @@ void __fastcall TForm1::ReadValuesButClick(TObject *Sender)
 	fval[8]=get_float32(iframe+36); sprintf(line,"No PM10  [#/cm^3]: %f",fval[8]); Console->Lines->Add(line);
 	fval[9]=get_float32(iframe+40); sprintf(line,"Typ. Size    [um]: %f",fval[9]); Console->Lines->Add(line);
 	Console->Lines->Add("OK");
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TForm1::ButtonReadAutoCleaningClick(TObject *Sender)
+{
+    int res;
+	char resp[256];
+	unsigned long csecs;
+	Console->Lines->Add("-> Read Auto Cleaning Interval");
+
+	sframe[3]=0;    // Sub-Byte 0
+	res=send_frame(0x80,1);
+	if(!res){
+
+		csecs=(iframe[4]<<24)+(iframe[5]<<16)+(iframe[6]<<8)+(iframe[7]);
+		sprintf(resp,"Interval: %u secs (%.2f hr)",csecs,(float)csecs/3600.0);
+		Console->Lines->Add(resp);
+		sprintf(resp,"%u",csecs);
+		EditSecs->Text=resp;
+	}
+
+
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TForm1::ButtonSetAutoCleaningClick(TObject *Sender)
+{
+	char buf[256];
+	int csecs;
+	sprintf(buf,"%ls",EditSecs->Text.c_str());
+	csecs=atol(buf);
+	if(csecs<0 || csecs>(168*3600)){
+		Console->Lines->Add("-> Error: must be 0 or <=168 hr");
+		return;
+	}
+	sprintf(buf,"-> Set Cleaning Interval to %u secs (%.2f hr)",csecs,(float)csecs/3600.0);
+	Console->Lines->Add(buf);
+	sframe[3]=0;    // Sub-Byte 0
+	sframe[4]=(csecs>>24)&255;
+	sframe[5]=(csecs>>16)&255;
+	sframe[6]=(csecs>>8)&255;
+	sframe[7]=(csecs)&255;
+
+	send_frame(0x80,5);
 }
 //---------------------------------------------------------------------------
 
